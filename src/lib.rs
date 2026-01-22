@@ -32,10 +32,10 @@ impl<const N: usize> RingBuffer<N> {
 }
 impl<const N: usize> Default for RingBuffer<N> {
     fn default() -> Self {
-        Self { 
-            buffer: [0.0; N], 
-            ptr: 0, 
-            len: 0
+        Self {
+            buffer: [0.0; N],
+            ptr: 0,
+            len: 0,
         }
     }
 }
@@ -43,134 +43,196 @@ impl<const N: usize> Default for RingBuffer<N> {
 #[macro_export]
 macro_rules! fps_plugin {
     () => {{
-        
-use ::bevy::prelude::*;
-use ::core::fmt::Write;
+        use ::bevy::prelude::*;
+        use ::core::fmt::Write;
 
-fn __entity_count(world: &World) -> usize {
-    world.entities().total_count()
-}
+        fn __entity_count(world: &World) -> usize {
+            world.entity_count() as usize
+        }
 
-#[allow(clippy::too_many_arguments)]
-fn __diagnostic_system(
-    entity_count: In<usize>,
-    mut commands: Commands,
-    mut sys_info: Local<$crate::sysinfo::System>,
-    mut refresh_timer: Local<f32>,
-    mut sys_timer: Local<f32>,
-    mut time_buffer: Local<$crate::RingBuffer<128>>,
-    cached: Local<::std::cell::OnceCell<[Entity; 5]>>,
-    time: Res<Time>,
-    mut text: Query<&mut Text>,
-) {
-    let [fps, max_ft, entities, cpu, ram] = *cached.get_or_init(|| {
-        let mut result = [Entity::PLACEHOLDER; 5];
-        const OUTER_MARGIN: f32 = 4.;
-        const INNER_MARGIN: f32 = 2.;
-        let font = TextFont {
-            font_size: 16.0,
-            ..default()
-        };
-        commands.spawn((
-            Node {
-                margin: UiRect { 
-                    left: Val::Auto, 
-                    right: Val::Px(OUTER_MARGIN), 
-                    top: Val::Px(OUTER_MARGIN), 
-                    bottom: Val::Auto 
-                },
-                ..Default::default()
-            },
-            BackgroundColor(Color::srgb(0.2, 0.2, 0.2))
-        )).with_children(|c| {
-            c.spawn(Node {
-                flex_direction: FlexDirection::Column,
-                margin: UiRect { 
-                    left: Val::Px(INNER_MARGIN), 
-                    right: Val::Px(INNER_MARGIN), 
-                    top: Val::Px(INNER_MARGIN), 
-                    bottom: Val::Px(INNER_MARGIN) 
-                },
-                align_items: AlignItems::FlexStart,
-                ..Default::default()
-            }).with_children(|c| {
-                result = [
-                    c.spawn((Node::default(), font.clone(), Text::new("FPS:"))).id(),
-                    c.spawn((Node::default(), font.clone(), Text::new("Max Frametime:"))).id(),
-                    c.spawn((Node::default(), font.clone(), Text::new("Entities:"))).id(),
-                    c.spawn((Node::default(), font.clone(), Text::new("CPU Usage:"))).id(),
-                    c.spawn((Node::default(), font.clone(), Text::new("Memory Usage:"))).id(),
-                ];
+        #[allow(unused)]
+        #[allow(clippy::too_many_arguments)]
+        fn __diagnostic_system(
+            entity_count: In<usize>,
+            mut commands: Commands,
+            mut sys_info: Local<$crate::sysinfo::System>,
+            mut refresh_timer: Local<f32>,
+            mut sys_timer: Local<f32>,
+            mut time_buffer: Local<$crate::RingBuffer<128>>,
+            mut pid: Local<Option<$crate::sysinfo::Pid>>,
+            cached: Local<::std::cell::OnceCell<[Entity; 5]>>,
+            time: Res<Time>,
+            mut text: Query<&mut Text>,
+        ) {
+            let [fps, max_ft, entities, cpu, ram] = *cached.get_or_init(|| {
+                let mut result = [Entity::PLACEHOLDER; 5];
+                const OUTER_MARGIN: f32 = 4.;
+                const INNER_MARGIN: f32 = 2.;
+                let font = TextFont {
+                    font_size: 16.0,
+                    ..default()
+                };
+                commands
+                    .spawn((
+                        Node {
+                            margin: UiRect {
+                                left: Val::Auto,
+                                right: Val::Px(OUTER_MARGIN),
+                                top: Val::Px(OUTER_MARGIN),
+                                bottom: Val::Auto,
+                            },
+                            ..Default::default()
+                        },
+                        BackgroundColor(Color::srgb(0.2, 0.2, 0.2)),
+                    ))
+                    .with_children(|c| {
+                        c.spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            margin: UiRect {
+                                left: Val::Px(INNER_MARGIN),
+                                right: Val::Px(INNER_MARGIN),
+                                top: Val::Px(INNER_MARGIN),
+                                bottom: Val::Px(INNER_MARGIN),
+                            },
+                            align_items: AlignItems::FlexStart,
+                            ..Default::default()
+                        })
+                        .with_children(|c| {
+                            result = [
+                                c.spawn((Node::default(), font.clone(), Text::new("FPS:")))
+                                    .id(),
+                                c.spawn((
+                                    Node::default(),
+                                    font.clone(),
+                                    Text::new("Max Frametime:"),
+                                ))
+                                .id(),
+                                c.spawn((Node::default(), font.clone(), Text::new("Entities:")))
+                                    .id(),
+                                c.spawn((Node::default(), font.clone(), Text::new("CPU Usage:")))
+                                    .id(),
+                                c.spawn((
+                                    Node::default(),
+                                    font.clone(),
+                                    Text::new("Memory Usage:"),
+                                ))
+                                .id(),
+                            ];
+                        });
+                        c.spawn(Node {
+                            flex_direction: FlexDirection::Column,
+                            margin: UiRect {
+                                left: Val::Px(INNER_MARGIN),
+                                right: Val::Px(INNER_MARGIN),
+                                top: Val::Px(INNER_MARGIN),
+                                bottom: Val::Px(INNER_MARGIN),
+                            },
+                            min_width: Val::Px(80.),
+                            align_items: AlignItems::FlexEnd,
+                            ..Default::default()
+                        })
+                        .with_children(|c| {
+                            result = [
+                                c.spawn((Node::default(), font.clone(), Text::default()))
+                                    .id(),
+                                c.spawn((Node::default(), font.clone(), Text::default()))
+                                    .id(),
+                                c.spawn((Node::default(), font.clone(), Text::default()))
+                                    .id(),
+                                c.spawn((Node::default(), font.clone(), Text::default()))
+                                    .id(),
+                                c.spawn((Node::default(), font.clone(), Text::default()))
+                                    .id(),
+                            ];
+                        });
+                    });
+                result
             });
-            c.spawn(Node {
-                flex_direction: FlexDirection::Column,
-                margin: UiRect { 
-                    left: Val::Px(INNER_MARGIN), 
-                    right: Val::Px(INNER_MARGIN), 
-                    top: Val::Px(INNER_MARGIN), 
-                    bottom: Val::Px(INNER_MARGIN) 
-                },
-                min_width: Val::Px(80.),
-                align_items: AlignItems::FlexEnd,
-                ..Default::default()
-            }).with_children(|c| {
-                result = [
-                    c.spawn((Node::default(), font.clone(), Text::default())).id(),
-                    c.spawn((Node::default(), font.clone(), Text::default())).id(),
-                    c.spawn((Node::default(), font.clone(), Text::default())).id(),
-                    c.spawn((Node::default(), font.clone(), Text::default())).id(),
-                    c.spawn((Node::default(), font.clone(), Text::default())).id(),
-                ];
-            });
-        });
-        result
-    });
 
-    time_buffer.push(time.delta_secs());
-    *sys_timer += time.delta_secs();
-    if *sys_timer > 0.2 {
-        *sys_timer -= 0.2;
-        sys_info.refresh_memory();
-        sys_info.refresh_cpu_usage();
-    }
-    
-    *refresh_timer += time.delta_secs();
-    if *refresh_timer > 0.05 {
-        *refresh_timer -= 0.05;
+            time_buffer.push(time.delta_secs());
 
-        if let Ok(mut text) = text.get_mut(fps) {
-            text.0.clear();
-            let fps = time_buffer.len() as f32 / time_buffer.iter().sum::<f32>();
-            let _ = write!(&mut text.0, "{:.0}", fps);
-        };
-        if let Ok(mut text) = text.get_mut(max_ft) {
-            text.0.clear();
-            let max_ft = time_buffer.iter().max_by(|a, b| 
-                a.partial_cmp(b).unwrap_or(::core::cmp::Ordering::Equal)
-            ).unwrap_or(&0.0);
-            let _ = write!(&mut text.0, "{:.2}ms", max_ft * 1000.);
-        };
-        if let Ok(mut text) = text.get_mut(entities) {
-            text.0.clear();
-            let _ = write!(&mut text.0, "{}", *entity_count);
-        };
-        if let Ok(mut text) = text.get_mut(cpu) {
-            let pct = sys_info.global_cpu_usage() as i32;
-            text.0.clear();
-            let _ = write!(&mut text.0, "{}%", pct);
-        };
-        if let Ok(mut text) = text.get_mut(ram) {
-            let pct = (sys_info.used_memory() * 100).checked_div(sys_info.total_memory()).unwrap_or(0);
-            text.0.clear();
-            let _ = write!(&mut text.0, "{}%", pct);
-        };
-    }
-}
+            *sys_timer += time.delta_secs();
+            if *sys_timer > 0.2 {
+                *sys_timer -= 0.2;
+                sys_info.refresh_memory();
+                sys_info.refresh_cpu_usage();
+                *pid = $crate::sysinfo::get_current_pid().ok();
+                if let Some(pid) = *pid {
+                    sys_info.refresh_processes_specifics(
+                        sysinfo::ProcessesToUpdate::Some(&[pid]),
+                        true,
+                        sysinfo::ProcessRefreshKind::nothing()
+                            .with_cpu()
+                            .with_memory(),
+                    );
+                }
+            }
 
-fn __plugin(app: &mut App) {
-    app.add_systems(First, __entity_count.pipe(__diagnostic_system));
-}
+            *refresh_timer += time.delta_secs();
+            if *refresh_timer > 0.05 {
+                *refresh_timer -= 0.05;
 
-__plugin
+                let process = (*pid).and_then(|pid| sys_info.process(pid));
+
+                if let Ok(mut text) = text.get_mut(fps) {
+                    text.0.clear();
+                    let fps = time_buffer.len() as f32 / time_buffer.iter().sum::<f32>();
+                    let _ = write!(&mut text.0, "{:.0}", fps);
+                };
+                if let Ok(mut text) = text.get_mut(max_ft) {
+                    text.0.clear();
+                    let max_ft = time_buffer
+                        .iter()
+                        .max_by(|a, b| a.partial_cmp(b).unwrap_or(::core::cmp::Ordering::Equal))
+                        .unwrap_or(&0.0);
+                    let _ = write!(&mut text.0, "{:.2}ms", max_ft * 1000.);
+                };
+                if let Ok(mut text) = text.get_mut(entities) {
+                    text.0.clear();
+                    let _ = write!(&mut text.0, "{}", *entity_count);
+                };
+                if let Ok(mut text) = text.get_mut(cpu) {
+                    text.0.clear();
+                    let global = sys_info.global_cpu_usage() as i32;
+                    if let Some(process) = process {
+                        let pct = process.cpu_usage() as i32 / sys_info.cpus().len() as i32;
+                        let _ = write!(&mut text.0, "{}%/{}%", pct, global);
+                    } else {
+                        let _ = write!(&mut text.0, "{}% (global)", global);
+                    }
+                };
+                if let Ok(mut text) = text.get_mut(ram) {
+                    text.0.clear();
+                    if let Some(process) = process {
+                        let mem = process.memory() as f32;
+                        let _ = match mem {
+                            mem if mem < 1000. => {
+                                write!(&mut text.0, "{:.2}B", mem);
+                            }
+                            mem if mem < 1024. * 1000. => {
+                                write!(&mut text.0, "{:.2}KB", mem / 1024.);
+                            }
+                            mem if mem < 1024. * 1024. * 1000. => {
+                                write!(&mut text.0, "{:.2}MB", mem / 1024. / 1024.);
+                            }
+                            mem => {
+                                write!(&mut text.0, "{:.2}GB", mem / 1024. / 1024. / 1024.);
+                            }
+                        };
+                    } else {
+                        let global = (sys_info.used_memory() * 100)
+                            .checked_div(sys_info.total_memory())
+                            .unwrap_or(0);
+                        let _ = write!(&mut text.0, "{}%", global);
+                    }
+                };
+            }
+        }
+
+        fn __plugin(app: &mut App) {
+            app.add_systems(First, __entity_count.pipe(__diagnostic_system));
+        }
+
+        __plugin
     }};
 }

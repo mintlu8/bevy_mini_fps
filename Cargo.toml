@@ -1,6 +1,6 @@
 [package]
 name = "bevy_mini_fps"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 authors = ["Mincong Lu <mintlux667@gmail.com>"]
@@ -15,7 +15,7 @@ keywords = ["bevy", "fps", "diagnostics"]
 
 
 [dependencies]
-sysinfo = "0.33.0"
+sysinfo = "0.34.2"
 
 [dev-dependencies]
-bevy = "0.15.0"
+bevy = "0.18.0"
