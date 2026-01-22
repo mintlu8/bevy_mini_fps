@@ -21,4 +21,5 @@ the only requirement is `bevy_ui`.
 
 | bevy        | bevy_quick_fps |
 |-------------|----------------|
-| 0.15-latest | 0.1            |
+| 0.15-0.17.  | 0.1            |
+| 0.18-latest | 0.2            |

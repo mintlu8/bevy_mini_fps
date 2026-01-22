@@ -159,9 +159,9 @@ macro_rules! fps_plugin {
                 *pid = $crate::sysinfo::get_current_pid().ok();
                 if let Some(pid) = *pid {
                     sys_info.refresh_processes_specifics(
-                        sysinfo::ProcessesToUpdate::Some(&[pid]),
+                        $crate::sysinfo::ProcessesToUpdate::Some(&[pid]),
                         true,
-                        sysinfo::ProcessRefreshKind::nothing()
+                        $crate::sysinfo::ProcessRefreshKind::nothing()
                             .with_cpu()
                             .with_memory(),
                     );
